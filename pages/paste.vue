@@ -2,15 +2,15 @@
   <div class="flex flex-col h-screen">
     <Navbar />
     <code
-      v-if="!$store.state.pastes.isEdit && !isMarkdown"
+      v-if="!isEdit && !isMarkdown"
       id="content"
-      v-highlight="$store.state.pastes.content.content"
+      v-highlight="pasteContent.content"
       class="break-word pl-4 h-full nomarkdown"
     ></code>
     <div
       v-else-if="isMarkdown"
       class="text-white sm:w-3/4 sm:m-auto markdown h-full overflow-auto w-full link-color"
-      v-html="$md.render($store.state.pastes.content.content)"
+      v-html="markdownHtml"
     ></div>
     <textarea
       v-else
@@ -22,58 +22,68 @@
   </div>
 </template>
 
-<script>
-export default {
-  data() {
-    return {
-      isMarkdown: false,
-      slug: '',
-    }
-  },
-  async fetch() {
-    const { params, $axios, redirect, store } = this.$nuxt.context
-    const paste = params.paste
-    const prelude = params.paste.split('/')
+<script setup>
+const route = useRoute()
+const config = useRuntimeConfig()
+const { $md } = useNuxtApp()
+const { pasteContent, isEdit } = usePasteState()
+
+const slug = ref('')
+const isMarkdown = ref(false)
+
+const pasteParam = computed(() => {
+  const value = route.params.paste
+  if (Array.isArray(value)) {
+    return value.join('/')
+  }
+
+  return value || ''
+})
+
+await useAsyncData(
+  () => `paste-${pasteParam.value}`,
+  async () => {
+    const paste = pasteParam.value
+    const prelude = paste.split('/')
     let extension = paste.split('.')
-    if (prelude) {
-      if (prelude[1]) {
-        extension = prelude[1].split('.')
-        this.isMarkdown = extension[1] === 'md'
-      } else {
-        extension = paste.split('.')
-        this.isMarkdown = extension[1] === 'md'
-      }
+
+    if (prelude[1]) {
+      extension = prelude[1].split('.')
+      isMarkdown.value = extension[1] === 'md'
+    } else {
+      extension = paste.split('.')
+      isMarkdown.value = extension[1] === 'md'
     }
 
     try {
-      const pasteContent = await $axios.$get(
-        `https://api.dscv.it/api/paste/${extension[0]}`,
-        { withCredentials: true }
-      )
+      const response = await $fetch(`${config.public.apiBase}/paste/${extension[0]}`, {
+        credentials: 'include',
+      })
 
-      if (pasteContent.is_url && prelude[0] !== 'v') {
-        redirect(pasteContent.content)
+      if (response.is_url && prelude[0] !== 'v') {
+        await navigateTo(response.content, { external: true })
+        return
       }
 
-      store.commit('pastes/setContent', pasteContent)
-      this.slug = paste
-    } catch (err) {
-      redirect('/')
+      pasteContent.value = response
+      slug.value = paste
+    } catch {
+      await navigateTo('/')
     }
   },
+  {
+    watch: [pasteParam],
+  }
+)
 
-  computed: {
-    textEdit: {
-      get() {
-        return this.$store.state.pastes.content.content
-      },
-
-      set(value) {
-        this.$store.commit('pastes/setContentText', value)
-      },
-    },
+const textEdit = computed({
+  get: () => pasteContent.value.content,
+  set: (value) => {
+    pasteContent.value.content = value
   },
-}
+})
+
+const markdownHtml = computed(() => $md.render(pasteContent.value.content || ''))
 </script>
 
 <style>

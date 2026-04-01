@@ -2,17 +2,17 @@
   <div>
     <div
       v-if="
-        !$store.state.pastes.isEdit &&
-        $route.name !== 'index' &&
-        $route.name !== 'about'
+        !isEdit &&
+        !isHomeRoute &&
+        !isAboutRoute
       "
       class="copy-bg sm:hidden"
     >
       <button
         v-if="
-          !$store.state.pastes.isEdit &&
-          $route.name !== 'index' &&
-          $route.name !== 'about'
+          !isEdit &&
+          !isHomeRoute &&
+          !isAboutRoute
         "
         aria-label="Copy"
         class="h-6 w-6 cursor-pointer fill-current text-white mr-4 copy-btn"
@@ -50,7 +50,7 @@
 </template>
 
 <script>
-import { copyToClipboard } from '~/plugins/clipboard'
+import { copyToClipboard } from '~/utils/clipboard'
 
 export default {
   name: 'CustomFooter',
@@ -60,9 +60,23 @@ export default {
       default: '',
     },
   },
+  setup() {
+    const route = useRoute()
+    const { isEdit, pasteContent } = usePasteState()
+
+    const isHomeRoute = computed(() => route.path === '/')
+    const isAboutRoute = computed(() => route.path === '/about')
+
+    return {
+      isEdit,
+      isHomeRoute,
+      isAboutRoute,
+      pasteContent,
+    }
+  },
   methods: {
     handleCopy() {
-      copyToClipboard(this.$store)
+      copyToClipboard(this.pasteContent.content)
     },
   },
 }

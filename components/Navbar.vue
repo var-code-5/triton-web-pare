@@ -12,9 +12,9 @@
     <div class="flex sm:hidden items-center">
       <svg
         v-if="
-          !$store.state.pastes.isEdit &&
-          $route.name !== 'index' &&
-          $route.name !== 'about'
+          !isEdit &&
+          !isHomeRoute &&
+          !isAboutRoute
         "
         xmlns="http://www.w3.org/2000/svg"
         version="1.1"
@@ -39,10 +39,10 @@
 
       <svg
         v-if="
-          this.$store.state.pastes.content.is_owner &&
-          !$store.state.pastes.isEdit &&
-          $route.name !== 'index' &&
-          $route.name !== 'about'
+          pasteContent.is_owner &&
+          !isEdit &&
+          !isHomeRoute &&
+          !isAboutRoute
         "
         class="h-6 w-6 cursor-pointer fill-current text-white mr-4 hover:text-amber"
         xmlns="http://www.w3.org/2000/svg"
@@ -56,8 +56,8 @@
 
       <svg
         v-if="
-          (showSave && this.$store.state.inputs.textInput !== '') ||
-          $store.state.pastes.isEdit
+          (showSave && textInput !== '') ||
+          isEdit
         "
         class="h-6 w-6 cursor-pointer fill-current text-white hover:text-amber"
         xmlns="http://www.w3.org/2000/svg"
@@ -92,9 +92,9 @@
       <div class="flex items-center">
         <svg
           v-if="
-            this.$store.state.pastes.content.is_owner &&
-            !$store.state.pastes.isEdit &&
-            $route.name !== 'index'
+            pasteContent.is_owner &&
+            !isEdit &&
+            !isHomeRoute
           "
           class="h-6 w-6 cursor-pointer fill-current text-white hover:text-amber"
           xmlns="http://www.w3.org/2000/svg"
@@ -108,8 +108,8 @@
 
         <svg
           v-if="
-            (showSave && this.$store.state.inputs.textInput !== '') ||
-            $store.state.pastes.isEdit
+            (showSave && textInput !== '') ||
+            isEdit
           "
           class="h-6 w-6 cursor-pointer fill-current text-white hover:text-amber"
           xmlns="http://www.w3.org/2000/svg"
@@ -122,9 +122,9 @@
         </svg>
         <svg
           v-if="
-            !$store.state.pastes.isEdit &&
-            $route.name !== 'index' &&
-            $route.name !== 'about'
+            !isEdit &&
+            !isHomeRoute &&
+            !isAboutRoute
           "
           xmlns="http://www.w3.org/2000/svg"
           version="1.1"
@@ -148,9 +148,9 @@
         </svg>
         <svg
           v-if="
-            !$store.state.pastes.isEdit &&
-            $route.name !== 'index' &&
-            $route.name !== 'about'
+            !isEdit &&
+            !isHomeRoute &&
+            !isAboutRoute
           "
           xmlns="http://www.w3.org/2000/svg"
           height="24"
@@ -170,8 +170,9 @@
   </nav>
 </template>
 
-<script>
-import { copyToClipboard } from '~/plugins/clipboard'
+<script setup>
+import { copyToClipboard } from '~/utils/clipboard'
+
 const validURL = (str) => {
   const pattern = new RegExp(
     '^(https?:\\/\\/)?' + // protocol
@@ -185,109 +186,102 @@ const validURL = (str) => {
   return pattern.test(str)
 }
 
-export default {
-  name: 'Navbar',
-  props: {
-    showSave: Boolean,
-    isAbout: Boolean,
-    isChangelog: Boolean,
-  },
-  data() {
-    return {
-      open: false,
-      isEdit: false,
-    }
-  },
+const props = defineProps({
+  showSave: Boolean,
+  isAbout: Boolean,
+  isChangelog: Boolean,
+})
 
-  mounted() {
-    document.addEventListener('keydown', this.doSave)
-    document.addEventListener('keydown', this.doCopy)
-  },
+const open = ref(false)
+const route = useRoute()
+const router = useRouter()
+const config = useRuntimeConfig()
+const { textInput, pasteContent, isEdit } = usePasteState()
 
-  beforeDestroy() {
-    document.removeEventListener('keydown', this.doSave)
-    document.removeEventListener('keydown', this.doCopy)
-  },
+const isHomeRoute = computed(() => route.path === '/')
+const isAboutRoute = computed(() => route.path === '/about')
 
-  methods: {
-    toggle() {
-      this.open = !this.open
-    },
-
-    handleEdit() {
-      this.$store.commit('pastes/setIsEdit', true)
-    },
-
-    doSave(e) {
-      if (!(e.keyCode === 83 && e.ctrlKey)) {
-        return
-      }
-
-      e.preventDefault()
-      this.handleSave()
-    },
-
-    handleCopy() {
-      copyToClipboard(this.$store)
-    },
-
-    doCopy(e) {
-      if (!(e.keyCode === 67 && e.altKey)) {
-        return
-      }
-      e.preventDefault()
-      this.handleCopy()
-    },
-
-    handleMD() {
-      var currURL = window.location.href
-      if (currURL.slice(-3) === '.md') {
-        window.location.href = window.location.href.split(".md")[0]
-        return
-      }
-      window.location.href += '.md'
-    },
-
-    async handleSave() {
-      if (this.$store.state.pastes.isEdit) {
-        try {
-          const {
-            id,
-          } = await this.$axios.$patch(
-            'https://api.dscv.it/api/paste',
-            this.$store.state.pastes.content,
-            { withCredentials: true }
-          )
-          this.$store.commit('pastes/setIsEdit', false)
-          this.$router.go({ path: `/${id}`, force: true })
-        } catch (err) {
-          this.$store.commit('pastes/setIsEdit', false)
-          this.$router.go({
-            path: `/${this.$store.state.pastes.content.id}`,
-            force: true,
-          })
-        }
-      } else if (this.$store.state.inputs.textInput !== '') {
-        try {
-          const content = this.$store.state.inputs.textInput
-          const isUrl = validURL(content)
-          const { paste_id: pasteId } = await this.$axios.$post(
-            'https://api.dscv.it/api/paste',
-            { is_url: isUrl, content },
-            { withCredentials: true }
-          )
-
-          this.$store.commit('inputs/set', '')
-
-          this.$router.push({ path: `${isUrl ? 'v/' : ''}${pasteId}` })
-        } catch (err) {
-          // eslint-disable-next-line no-console
-          console.log(err)
-        }
-      }
-    },
-  },
+const toggle = () => {
+  open.value = !open.value
 }
+
+const handleEdit = () => {
+  isEdit.value = true
+}
+
+const handleCopy = () => {
+  copyToClipboard(pasteContent.value.content)
+}
+
+const handleMD = () => {
+  const currURL = window.location.href
+  if (currURL.slice(-3) === '.md') {
+    window.location.href = currURL.split('.md')[0]
+    return
+  }
+  window.location.href += '.md'
+}
+
+const handleSave = async () => {
+  if (isEdit.value) {
+    try {
+      const { id } = await $fetch(`${config.public.apiBase}/paste`, {
+        method: 'PATCH',
+        body: pasteContent.value,
+        credentials: 'include',
+      })
+
+      isEdit.value = false
+      await navigateTo(`/${id}`)
+    } catch {
+      isEdit.value = false
+      await navigateTo(`/${pasteContent.value.id}`)
+    }
+  } else if (textInput.value !== '') {
+    try {
+      const content = textInput.value
+      const isUrl = validURL(content)
+      const { paste_id: pasteId } = await $fetch(`${config.public.apiBase}/paste`, {
+        method: 'POST',
+        body: { is_url: isUrl, content },
+        credentials: 'include',
+      })
+
+      textInput.value = ''
+      await router.push({ path: `${isUrl ? 'v/' : ''}${pasteId}` })
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.log(err)
+    }
+  }
+}
+
+const doSave = (e) => {
+  if (!(e.keyCode === 83 && e.ctrlKey)) {
+    return
+  }
+
+  e.preventDefault()
+  handleSave()
+}
+
+const doCopy = (e) => {
+  if (!(e.keyCode === 67 && e.altKey)) {
+    return
+  }
+  e.preventDefault()
+  handleCopy()
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', doSave)
+  document.addEventListener('keydown', doCopy)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', doSave)
+  document.removeEventListener('keydown', doCopy)
+})
 </script>
 
 <style scoped>

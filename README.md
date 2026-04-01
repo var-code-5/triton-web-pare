@@ -26,7 +26,8 @@
 ## Instructions to run
 
 * Pre-requisites:
-	-  Nuxt/Vue
+	-  Node.js 20+
+	-  Nuxt 3
 
 * < directions to install > 
 ```bash
@@ -49,7 +50,7 @@ $ yarn start
 $ yarn generate
 ```
 
-For detailed explanation on how things work, check out [Nuxt.js docs](https://nuxtjs.org).
+For detailed explanation on how things work, check out [Nuxt docs](https://nuxt.com/docs).
 
 
 ## Contributors

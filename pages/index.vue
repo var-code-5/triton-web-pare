@@ -11,20 +11,8 @@
   </div>
 </template>
 
-<script>
-export default {
-  computed: {
-    textInput: {
-      get() {
-        return this.$store.state.inputs.textInput
-      },
-
-      set(value) {
-        this.$store.commit('inputs/set', value)
-      },
-    },
-  },
-}
+<script setup>
+const { textInput } = usePasteState()
 </script>
 
 <style>
